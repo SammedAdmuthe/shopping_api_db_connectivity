@@ -37,6 +37,8 @@ function initiateDBConnection() {
 const regExpCatalog = new RegExp('^\/catalog.*');
 	//>> URI relates to "orders" collection of purchase orders:
 const regExpOrders = new RegExp('^\/orders\/.*','i');
+
+const regExpProducts = new RegExp('^\/product.*');
 // callback function, called by the web server to process client HTTP requests
 
 
@@ -48,6 +50,48 @@ function setHeader(resMsg){
         resMsg.headers["Content-Type"] = "application/json";
       }
 
+}
+
+
+function addProduct(request, response) {
+  let resMsg = {};
+  var dBCon = initiateDBConnection();
+  var body='';
+  request.on('data', function(data){
+    body+=data;
+  });
+
+  request.on('end', function () {
+    try{
+      dBCon.connect(function (err) {
+        newProduct = JSON.parse(body);
+        sqlStatement = "INSERT INTO catalog(product_name, product_type, price) VALUES ('" + newProduct.name + "','"+ newProduct.type + "', " + newProduct.price+")";
+        dBCon.query(sqlStatement, function (err, result) {
+          if (err) {
+            resMsg.code = 503;
+            resMsg.message = "Service Unavailable";
+            resMsg.body = "MySQL server error: CODE = " + err.code
+                         + " SQL of the failed query: " + err.sql
+                         + " Textual description: " + err.sqlMessage;
+          }
+          setHeader(resMsg);//Set Header
+          response.writeHead(resMsg.code=200, resMsg.hdrs);
+          resMsg.body = "Record inserted successfully"; 
+
+          response.end(resMsg.body);
+          dBCon.end();
+        });
+      });
+    }
+    catch (ex) {
+      resMsg.code = 500;
+      resMsg.message = "Server Error";
+    }
+  });
+
+
+return resMsg;
+  
 }
 
 function listProducts(request, response) {
@@ -70,7 +114,6 @@ function listProducts(request, response) {
           sqlStatement = "SELECT * FROM catalog;";
         }
 
-        console.log("In connector!!!!!");
         dBCon.query(sqlStatement, function (err, result) {
             if (err) {
               resMsg.code = 503;
@@ -119,7 +162,29 @@ function applicationServer(request, response) {
   catch(ex) { 
 
    }
- 
+
+
+
+
+
+
+  //======================== Add Product =========================//
+  try {
+    if (done === false && regExpProducts.test(request.url) && request.method == "POST") {
+
+      addProduct(request, response);
+    //   resMsg = customers(req, res, urlParts);
+      done = true;
+    }
+  }
+  catch(ex) { 
+   }
+  //================================================================================== 
+
+
+
+
+
   // request processor for products "catalog" database collection
   try {
     if (done === false && regExpCatalog.test(request.url)) {
