@@ -39,6 +39,9 @@ const regExpCatalog = new RegExp('^\/catalog.*');
 const regExpOrders = new RegExp('^\/orders\/.*','i');
 
 const regExpProducts = new RegExp('^\/product.*');
+
+const regExpCart = new RegExp('^\/cart.*');
+
 // callback function, called by the web server to process client HTTP requests
 
 
@@ -51,7 +54,93 @@ function setHeader(resMsg){
       }
 
 }
-
+function addToCart(request, response, customerId, body) {
+  let resMsg = {};
+  var dBCon = initiateDBConnection();
+  var body='';
+  var catlog;
+  var total_cost=0;
+  var quantity_in_cart;
+  var current_quantity = 1;
+  var output = [];
+  request.on('data', function(data){
+    body+=data;
+  });
+  request.on("end", function() {     // process the request message body
+  try {
+    parsed = JSON.parse(body); // "product_id" is the primary key in "cart_item" table
+    dBCon.connect(function (err){
+      if (err) throw err; // throws error in case if connection is corrupted/disconnected
+          // Find the current quantity of the given product id in the cart and increment by one
+      dBCon.query("SELECT * from product where product_id=?", [parsed.product_id], function (err, result) {
+        if (err) {
+          resMsg.code = 503;
+          resMsg.message = "Service Unavailable";
+          resMsg.body = "MySQL server error: CODE = "
+            + err.code + " SQL of the failed query: " + err.sql
+            + " Textual description: " + err.sqlMessage;
+        } 
+        else {
+          catalog = JSON.parse(JSON.stringify(result));
+          dBCon.query("SELECT * from cart_item where cart_item_id=?", [parsed.product_id], function (err, result) {
+            if (err) {
+              resMsg.code = 503;
+              resMsg.message = "Service Unavailable";
+              resMsg.body = "MySQL server error: CODE = "
+                  + err.code + " SQL of the failed query: " + err.sql
+                  + " Textual description: " + err.sqlMessage;
+            } else {
+              quantity_in_cart = JSON.parse(JSON.stringify(result));
+              if (quantity_in_cart[0] === undefined ||
+                  quantity_in_cart[0].quantity === undefined) {
+                total_cost =
+                  catalog[0].price * (1 - (catalog[0].discount / 100));
+              } else {
+                total_cost = (quantity_in_cart[0].quantity + 1) *
+                  catalog[0].price * (1 - (catalog[0].discount) / 100);
+              }
+            }
+          });
+          dBCon.query("INSERT into cart_item values(?,?,?,?,?,1) on DUPLICATE KEY update quantity = quantity + 1",
+            [parsed.product_id, parsed.cart_id, parsed.product_id, total_cost,
+              catalog[0].discount], function (err, result) {
+            if (err) {
+              resMsg.code = 503;
+              resMsg.message = "Service Unavailable";
+              resMsg.body = "MySQL server error: CODE = "
+                + err.code + " SQL of the failed query: "+ err.sql
+                + " Textual description : "+ err.sqlMessage;
+            }
+            // update total cost every time
+            dBCon.query("UPDATE cart_item set price = ? where cart_item_id=?", [total_cost, parsed.product_id],
+              function (err, result) {
+                if (err) {
+                  resMsg.code = 503;
+                  resMsg.message = "Service Unavailable";
+                  resMsg.body = "MySQL server error: CODE = "
+                    + err.code + " SQL of the failed query: "
+                + err.sql + " Textual description : " + err.sqlMessage;
+                }
+                dBCon.query("SELECT * from cart_item where cart_item_id=?", [parsed.product_id],
+                  function (err, result_final) {
+                    if(err) {  /* error 503 Service Unavailable */ }
+                    resMsg.code = 200;
+                    resMsg.message = "OK";
+                    resMsg.body = JSON.stringify(result_final);
+                    response.end(resMsg.body);
+                });
+            });
+          });
+      }
+    });
+    });
+  } catch (ex) {
+    resMsg.code = 500;
+    resMsg.message = "Server Error";
+  }
+  return resMsg;
+    });
+}
 
 function addProduct(request, response) {
   let resMsg = {};
@@ -182,6 +271,19 @@ function applicationServer(request, response) {
   //================================================================================== 
 
 
+
+    //======================== Add To Cart =========================//
+    try {
+      if (done === false && regExpCart.test(request.url) && request.method == "PATCH") {
+  
+        addToCart(request, response);
+      //   resMsg = customers(req, res, urlParts);
+        done = true;
+      }
+    }
+    catch(ex) { 
+     }
+    //================================================================================== 
 
 
 
