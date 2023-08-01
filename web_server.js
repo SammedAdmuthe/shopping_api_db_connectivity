@@ -72,7 +72,7 @@ function addToCart(request, response, customerId, body) {
     dBCon.connect(function (err){
       if (err) throw err; // throws error in case if connection is corrupted/disconnected
           // Find the current quantity of the given product id in the cart and increment by one
-      dBCon.query("SELECT * from product where product_id=?", [parsed.product_id], function (err, result) {
+      dBCon.query("SELECT * from catalog where product_id=?", [parsed.product_id], function (err, result) {
         if (err) {
           resMsg.code = 503;
           resMsg.message = "Service Unavailable";
