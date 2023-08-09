@@ -75,11 +75,11 @@ function addToCart(request, response, customerId, body) {
     request.on('data', function(data){
       body+=data;
     });
-    request.on("end", function() {     // process the request message body
+    request.on("end", function() {
     try {
       parsed = JSON.parse(body); // "product_id" is the primary key in "cart_item" table
       dBCon.connect(function (err){
-        if (err) throw err; // throws error in case if connection is corrupted/disconnected
+        if (err) throw err;
             // Find the current quantity of the given product id in the cart and increment by one
         dBCon.query("SELECT * from catalog where product_id=?", [parsed.product_id], function (err, result) {
           if (err) {
