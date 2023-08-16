@@ -12,15 +12,6 @@ function initiateDBConnection() {
     });
     return connection;
 }
-function setHeader(resMsg){
-    if (!resMsg.headers || resMsg.headers === null) {
-        resMsg.headers = {};
-      }
-      if (!resMsg.headers["Content-Type"]) {
-        resMsg.headers["Content-Type"] = "application/json";
-      }
-
-}
 
 function addProduct(request, response) {
     let resMsg = {};
@@ -37,24 +28,20 @@ function addProduct(request, response) {
           sqlStatement = "INSERT INTO catalog(product_name, product_type, price) VALUES ('" + newProduct.name + "','"+ newProduct.type + "', " + newProduct.price+")";
           dBCon.query(sqlStatement, function (err, result) {
             if (err) {
-              resMsg.code = 503;
               resMsg.message = "Service Unavailable";
-              resMsg.body = "MySQL server error: CODE = " + err.code
-                           + " SQL of the failed query: " + err.sql
-                           + " Textual description: " + err.sqlMessage;
+              resMsg.body = "MySQL server error: CODE = "
+                  + err.code + " SQL of the failed query: "
+                  + err.sql + " Textual description : " + err.sqlMessage;
+              response.status(503).send(resMsg);
             }
-            setHeader(resMsg);//Set Header
-            response.writeHead(resMsg.code=200, resMsg.hdrs);
-            resMsg.body = "Record inserted successfully"; 
-  
-            response.end(resMsg.body);
+            response.set('content-type', 'application/json')
+            response.status(200).send("Record inserted successfully");
             dBCon.end();
           });
         });
       }
       catch (ex) {
-        resMsg.code = 500;
-        resMsg.message = "Server Error";
+        response.status(500).send("Server Error");
       }
     });
   
@@ -83,21 +70,21 @@ function addToCart(request, response, customerId, body) {
             // Find the current quantity of the given product id in the cart and increment by one
         dBCon.query("SELECT * from catalog where product_id=?", [parsed.product_id], function (err, result) {
           if (err) {
-            resMsg.code = 503;
             resMsg.message = "Service Unavailable";
             resMsg.body = "MySQL server error: CODE = "
-              + err.code + " SQL of the failed query: " + err.sql
-              + " Textual description: " + err.sqlMessage;
+              + err.code + " SQL of the failed query: "
+              + err.sql + " Textual description : " + err.sqlMessage;
+            response.status(503).send(resMsg);
           } 
           else {
             catalog = JSON.parse(JSON.stringify(result));
             dBCon.query("SELECT * from cart_item where cart_item_id=?", [parsed.product_id], function (err, result) {
               if (err) {
-                resMsg.code = 503;
                 resMsg.message = "Service Unavailable";
                 resMsg.body = "MySQL server error: CODE = "
-                    + err.code + " SQL of the failed query: " + err.sql
-                    + " Textual description: " + err.sqlMessage;
+                  + err.code + " SQL of the failed query: "
+                  + err.sql + " Textual description : " + err.sqlMessage;
+                response.status(503).send(resMsg);
               } else {
                 quantity_in_cart = JSON.parse(JSON.stringify(result));
                 if (quantity_in_cart[0] === undefined ||
@@ -114,30 +101,28 @@ function addToCart(request, response, customerId, body) {
               [parsed.product_id, parsed.cart_id, parsed.product_id, total_cost,
                 catalog[0].discount], function (err, result) {
               if (err) {
-                console.log(err);
-                resMsg.code = 503;
                 resMsg.message = "Service Unavailable";
                 resMsg.body = "MySQL server error: CODE = "
-                  + err.code + " SQL of the failed query: "+ err.sql
-                  + " Textual description : "+ err.sqlMessage;
+                  + err.code + " SQL of the failed query: "
+                  + err.sql + " Textual description : " + err.sqlMessage;
+                response.status(503).send(resMsg);
               }
               // update total cost every time
               dBCon.query("UPDATE cart_item set price = ? where cart_item_id=?", [total_cost, parsed.product_id],
                 function (err, result) {
                   if (err) {
-                    resMsg.code = 503;
                     resMsg.message = "Service Unavailable";
                     resMsg.body = "MySQL server error: CODE = "
                       + err.code + " SQL of the failed query: "
-                  + err.sql + " Textual description : " + err.sqlMessage;
+                      + err.sql + " Textual description : " + err.sqlMessage;
+                    response.status(503).send(resMsg);
                   }
                   dBCon.query("SELECT * from cart_item where cart_item_id=?", [parsed.product_id],
                     function (err, result_final) {
                       if(err) {  /* error 503 Service Unavailable */ }
-                      resMsg.code = 200;
-                      resMsg.message = "OK";
-                      resMsg.body = JSON.stringify(result_final);
-                      response.end(resMsg.body);
+                      var result_response = JSON.stringify(result_final);
+                      response.set('content-type', 'application/json')
+                      response.status(200).send(result_response);
                   });
               });
             });
@@ -145,51 +130,51 @@ function addToCart(request, response, customerId, body) {
       });
       });
     } catch (ex) {
-      resMsg.code = 500;
-      resMsg.message = "Server Error";
+      response.status(500).send("Server Error");
     }
-    return resMsg;
-      });
-  }
+  });
+}
 function listProducts(request, response) {
     let resMsg = {}, sqlStatement;
     var filter;
     // detect any filter on the URL line, or just retrieve the full collection
     
-    var dBCon = initiateDBConnection();
+    try{
+        var dBCon = initiateDBConnection();
+        dBCon.connect(function (err) {
+          if (err) throw err; // throws error in case if connection is corrupted/disconnected
+
+          query = request.url.split('?');
+          if (query[1] !== undefined) {
+            // parse URL query to a collection of <key, value> pairs:
+            filters = query[1].split("=");
+            //filters get split on "=" as product_id(Category) = 1 (Value)
+            sqlStatement = "SELECT * FROM catalog WHERE " + filters[0]+"='"+filters[1]+"'";
+          } else {
+            sqlStatement = "SELECT * FROM catalog;";
+          }
+
+          dBCon.query(sqlStatement, function (err, result) {
+              if (err) {
+                resMsg.message = "Service Unavailable";
+                resMsg.body = "MySQL server error: CODE = "
+                  + err.code + " SQL of the failed query: "
+                  + err.sql + " Textual description : " + err.sqlMessage;
+                response.status(503).send(resMsg);
+              } else {
+                // Step 1 : Convert databse result set into JSON String Step 2: Parse to actual JSON Step 3: finally convert JSON into JSON String
+                var result_response = JSON.stringify(JSON.parse(JSON.stringify(result)));
+                response.set('content-type', 'application/json')
+                response.status(200).send(result_response);
+                dBCon.end();
+              }
+            });
+      });
+    }
+    catch(err) {
+      response.status(200).send(result_response);
+    }
     
-    dBCon.connect(function (err) {
-        if (err) throw err; // throws error in case if connection is corrupted/disconnected
-
-        query = request.url.split('?');
-        if (query[1] !== undefined) {
-          // parse URL query to a collection of <key, value> pairs:
-          filters = query[1].split("=");
-          //filters get split on "=" as product_id(Category) = 1 (Value)
-          sqlStatement = "SELECT * FROM catalog WHERE " + filters[0]+"='"+filters[1]+"'";
-        } else {
-          sqlStatement = "SELECT * FROM catalog;";
-        }
-
-        dBCon.query(sqlStatement, function (err, result) {
-            if (err) {
-              resMsg.code = 503;
-              resMsg.message = "Service Unavailable";
-              resMsg.body = "MySQL server error: CODE = " + err.code
-                    + " SQL of the failed query: " + err.sql
-                    + " Textual description: " + err.sqlMessage;
-            } else {
-              resMsg.body =  JSON.stringify(JSON.parse(JSON.stringify(result))); // Step 1 : Convert databse result set into JSON String Step 2: Parse to actual JSON Step 3: finally convert JSON into JSON String
-              setHeader(resMsg);//Set Header
-              response.writeHead(resMsg.code=200, resMsg.hdrs),
-              response.end(resMsg.body);
-              dBCon.end();
-
-            }
-          });
-    });
-    
-    return resMsg;
   }
 app.get('/catalog', function(req, res){
 
