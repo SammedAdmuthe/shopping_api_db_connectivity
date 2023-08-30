@@ -1,5 +1,5 @@
 var express = require('express');
-var app = express();
+var route = express();
 var sql = require("mysql");
 
 function initiateDBConnection() {
@@ -176,23 +176,23 @@ function listProducts(request, response) {
     }
     
   }
-app.get('/catalog', function(req, res){
+route.get('/catalog/:id?', function(req, res){
 
     listProducts(req, res);
 
 });
 
-app.post('/product', function(req, res){
+route.post('/product', function(req, res){
     
     addProduct(req, res);
 
 });
 
-app.patch('/cart', function(req, res){
+route.patch('/cart', function(req, res){
     
     addToCart(req, res);
 
 });
 
 
-app.listen(8009);
+route.listen(8009);
