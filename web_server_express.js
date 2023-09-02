@@ -176,7 +176,7 @@ function listProducts(request, response) {
     }
     
   }
-route.get('/catalog/:id?', function(req, res){
+route.get('/catalog', function(req, res){
 
     listProducts(req, res);
 

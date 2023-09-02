@@ -230,7 +230,6 @@ function applicationServer(request, response) {
     // parse the URL in the request
   let urlParts = [];
   let segments = request.url.split('/');
-  
 
   for (i=0, num=segments.length; i<num; i++) {
     if (segments[i] !== "") {  // check for trailing "/" or double "//"
@@ -238,79 +237,54 @@ function applicationServer(request, response) {
     }
   }
   console.log(urlParts);
-
-  // request processor for "customers" database collection
-  try {
-    if (done === false && regExpCustomers.test(request.url)) {
-        console.log(request.url);
-
-    //   resMsg = customers(req, res, urlParts);
-      done = true;
-    }
-  }
-  catch(ex) { 
-
-   }
-
-
-
-
-
-
-  //======================== Add Product =========================//
-  try {
-    if (done === false && regExpProducts.test(request.url) && request.method == "POST") {
-
-      addProduct(request, response);
-    //   resMsg = customers(req, res, urlParts);
-      done = true;
-    }
-  }
-  catch(ex) { 
-   }
-  //================================================================================== 
-
-
-
-    //======================== Add To Cart =========================//
-    try {
-      if (done === false && regExpCart.test(request.url) && request.method == "PATCH") {
   
-        addToCart(request, response);
-      //   resMsg = customers(req, res, urlParts);
-        done = true;
+  if(request.method == "GET"){
+      // request processor for products "catalog" database collection
+      try {
+        if (regExpCatalog.test(request.url)) {
+          resMsg = listProducts(request, response);
+        //   resMsg = catalog(req, res, urlParts);
+            done = true;
+        }
       }
-    }
-    catch(ex) { 
-     }
-    //================================================================================== 
-
-
-
-  // request processor for products "catalog" database collection
-  try {
-    if (done === false && regExpCatalog.test(request.url)) {
-      resMsg = listProducts(request, response);
-    //   resMsg = catalog(req, res, urlParts);
-        done = true;
-    }
+      catch(ex) { 
+          
+      }
   }
-  catch(ex) { 
+  else if(request.method == "POST"){
+    //======================== Add Product =========================//
+      try {
+        if (regExpProducts.test(request.url)) {
+
+          addProduct(request, response);
+          done = true;
+        }
+      }
+      catch(ex) { 
+      }
+  }
+  else if(request.method == "PATCH"){
+        //======================== Add To Cart =========================//
+        try {
+          if (regExpCart.test(request.url)) {
       
-   }
+            addToCart(request, response);
+            done = true;
+          }
+        }
+        catch(ex) { 
+         }
+  }
+  else if(request.method == "DELETE"){
     
-  if (done === false) {    // error:  unrecognized request
+  }
+  if(done == false) {
     resMsg.code = 404;
     resMsg.body = "Not Found";
     setHeader(resMsg)
     response.writeHead(404, resMsg.hdrs),
     response.end(resMsg.body);
   }
-  // finalize the HTTP response for the client
-
-  // send the response message
-//   response.writeHead(resMsg.code, resMsg.hdrs),
-//   response.end(resMsg.body);
 
 }
 
