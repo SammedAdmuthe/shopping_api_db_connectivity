@@ -67,7 +67,7 @@ function addToCart(request, response, customerId, body) {
       parsed = JSON.parse(body); // "product_id" is the primary key in "cart_item" table
       dBCon.connect(function (err){
         if (err) throw err;
-            // Find the current quantity of the given product id in the cart and increment by one
+            // Find the product detail of the given product id from catalog.
         dBCon.query("SELECT * from catalog where product_id=?", [parsed.product_id], function (err, result) {
           if (err) {
             resMsg.message = "Service Unavailable";
@@ -78,6 +78,7 @@ function addToCart(request, response, customerId, body) {
           } 
           else {
             catalog = JSON.parse(JSON.stringify(result));
+            // Get all the details of product from a cart.
             dBCon.query("SELECT * from cart_item where cart_item_id=?", [parsed.product_id], function (err, result) {
               if (err) {
                 resMsg.message = "Service Unavailable";
@@ -87,11 +88,14 @@ function addToCart(request, response, customerId, body) {
                 response.status(503).send(resMsg);
               } else {
                 quantity_in_cart = JSON.parse(JSON.stringify(result));
+
+                //if there is no item of product_id present in the cart - add one!
                 if (quantity_in_cart[0] === undefined ||
                     quantity_in_cart[0].quantity === undefined) {
                   total_cost =
                     catalog[0].price * (1 - (catalog[0].discount / 100));
                 } else {
+                  //if there exists an item with id = product_id - increment quantity and calculate total cost.
                   total_cost = (quantity_in_cart[0].quantity + 1) *
                     catalog[0].price * (1 - (catalog[0].discount) / 100);
                 }
@@ -107,6 +111,8 @@ function addToCart(request, response, customerId, body) {
                   + err.sql + " Textual description : " + err.sqlMessage;
                 response.status(503).send(resMsg);
               }
+              var result_response;
+              var costOfCart = 0;
               // update total cost every time
               dBCon.query("UPDATE cart_item set price = ? where cart_item_id=?", [total_cost, parsed.product_id],
                 function (err, result) {
@@ -116,11 +122,21 @@ function addToCart(request, response, customerId, body) {
                       + err.code + " SQL of the failed query: "
                       + err.sql + " Textual description : " + err.sqlMessage;
                     response.status(503).send(resMsg);
-                  }
+                  } 
+                  //calculate total cost of cart and send it later via response object
+                  dBCon.query("select sum(price) as total_cost_of_cart from cart_item group by cart_id having cart_id=?", [parsed.cart_id],
+                    function (err, result) {
+                      if(err) {  /* error 503 Service Unavailable */ }
+                      var parsed_cost = JSON.parse(JSON.stringify(result));
+                      costOfCart = parsed_cost[0]["total_cost_of_cart"];
+                  });
+
                   dBCon.query("SELECT * from cart_item where cart_item_id=?", [parsed.product_id],
                     function (err, result_final) {
                       if(err) {  /* error 503 Service Unavailable */ }
-                      var result_response = JSON.stringify(result_final);
+
+                      result_final[0].total_cost_of_cart = costOfCart;
+                      result_response = JSON.stringify(result_final);
                       response.set('content-type', 'application/json')
                       response.status(200).send(result_response);
                   });
