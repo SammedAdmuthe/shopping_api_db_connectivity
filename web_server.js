@@ -172,7 +172,7 @@ function addProduct(request, response) {
     try{
       dBCon.connect(function (err) {
         newProduct = JSON.parse(body);
-        sqlStatement = "INSERT INTO catalog(product_name, product_type, price) VALUES ('" + newProduct.name + "','"+ newProduct.type + "', " + newProduct.price+")";
+        sqlStatement = "INSERT INTO catalog(product_name, product_type, price) VALUES ('" + newProduct.product_name + "','"+ newProduct.product_type + "', " + newProduct.price+")";
         dBCon.query(sqlStatement, function (err, result) {
           if (err) {
             resMsg.code = 503;
